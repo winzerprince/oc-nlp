@@ -165,6 +165,10 @@ func (s *Store) indexPath(model string) string {
 
 // simpleChunk performs simple chunking of text into fixed-size overlapping chunks
 func simpleChunk(text string, chunkSize, overlap int) []string {
+	if chunkSize <= 0 {
+		return []string{}
+	}
+	
 	words := strings.Fields(text)
 	if len(words) == 0 {
 		return []string{}
@@ -241,9 +245,9 @@ func (s *Store) BuildIndex(ctx context.Context, model string, cfg embeddings.Con
 				Text:      chunk,
 				Embedding: embedding,
 				Metadata: vector.Metadata{
-					"source":     src.Path,
-					"chunk_idx":  chunkIdx,
-					"total_chunks": len(chunks),
+					"source":      src.Path,
+					"chunkIdx":    chunkIdx,
+					"totalChunks": len(chunks),
 				},
 			}
 			idx.Add(doc)
@@ -257,11 +261,17 @@ func (s *Store) BuildIndex(ctx context.Context, model string, cfg embeddings.Con
 	
 	// Update model stats
 	meta, err := s.GetModel(model)
-	if err == nil {
-		meta.Stats.Embeddings = idx.Count()
-		meta.UpdatedAt = time.Now().UTC()
-		mb, _ := json.MarshalIndent(meta, "", "  ")
-		_ = os.WriteFile(s.metaPath(model), mb, 0o644)
+	if err != nil {
+		return fmt.Errorf("get model for stats update: %w", err)
+	}
+	meta.Stats.Embeddings = idx.Count()
+	meta.UpdatedAt = time.Now().UTC()
+	mb, err := json.MarshalIndent(meta, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal model metadata: %w", err)
+	}
+	if err := os.WriteFile(s.metaPath(model), mb, 0o644); err != nil {
+		return fmt.Errorf("write model metadata: %w", err)
 	}
 	
 	return nil

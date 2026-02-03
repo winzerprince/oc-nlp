@@ -55,8 +55,11 @@ func CosineSimilarity(a, b []float64) (float64, error) {
 		normB += b[i] * b[i]
 	}
 	
-	if normA == 0 || normB == 0 {
-		return 0, fmt.Errorf("zero vector")
+	if normA == 0 {
+		return 0, fmt.Errorf("cannot compute similarity: first vector is zero")
+	}
+	if normB == 0 {
+		return 0, fmt.Errorf("cannot compute similarity: second vector is zero")
 	}
 	
 	return dotProduct / (math.Sqrt(normA) * math.Sqrt(normB)), nil

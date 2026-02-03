@@ -43,7 +43,7 @@ func NewClient(cfg Config) (*Client, error) {
 		var err error
 		client, err = api.ClientFromEnvironment()
 		if err != nil {
-			return nil, fmt.Errorf("create ollama client: %w", err)
+			return nil, fmt.Errorf("create ollama client from environment (ensure OLLAMA_HOST is set): %w", err)
 		}
 	}
 	

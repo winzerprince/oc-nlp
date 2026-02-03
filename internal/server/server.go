@@ -4,7 +4,10 @@ import (
 	"embed"
 	"fmt"
 	"html/template"
+	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/winzerprince/oc-nlp/internal/chat"
 	"github.com/winzerprince/oc-nlp/internal/embeddings"
@@ -34,6 +37,8 @@ func Run(addr, dataDir string) error {
 	mux.HandleFunc("/", app.handleHome)
 	mux.HandleFunc("/models/create", app.handleCreateModel)
 	mux.HandleFunc("/chat", app.handleChat)
+	mux.HandleFunc("/ingest/path", app.handleIngestPath)
+	mux.HandleFunc("/ingest/upload", app.handleIngestUpload)
 
 	srv := &http.Server{Addr: addr, Handler: mux}
 	fmt.Println("oc-nlp server:", "http://"+addr)
@@ -95,4 +100,74 @@ func (a *App) handleChat(w http.ResponseWriter, r *http.Request) {
 		"Result": res,
 		"Error":  errMsg,
 	})
+}
+
+func (a *App) handleIngestPath(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	model := r.FormValue("model")
+	path := r.FormValue("path")
+	if model == "" || path == "" {
+		http.Error(w, "model and path are required", http.StatusBadRequest)
+		return
+	}
+	if _, err := a.Store.GetModel(model); err != nil {
+		http.Error(w, "unknown model: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := a.Store.IngestSources(model, path); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+func (a *App) handleIngestUpload(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	model := r.FormValue("model")
+	if model == "" {
+		http.Error(w, "model is required", http.StatusBadRequest)
+		return
+	}
+	if _, err := a.Store.GetModel(model); err != nil {
+		http.Error(w, "unknown model: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	file, hdr, err := r.FormFile("file")
+	if err != nil {
+		http.Error(w, "missing file", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	uploadDir := filepath.Join(a.DataDir, "models", model, "uploads")
+	if err := os.MkdirAll(uploadDir, 0o755); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	dest := filepath.Join(uploadDir, filepath.Base(hdr.Filename))
+	out, err := os.Create(dest)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if _, err := io.Copy(out, file); err != nil {
+		_ = out.Close()
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	_ = out.Close()
+
+	if err := a.Store.IngestSources(model, dest); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	http.Redirect(w, r, "/", http.StatusSeeOther)
 }

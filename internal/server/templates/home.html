@@ -44,7 +44,40 @@
       </div>
     </div>
 
+    
+
     <div class="card">
+      <h3>Ingest</h3>
+      <div class="row">
+        <div class="col">
+          <h4>Ingest local path</h4>
+          <p class="muted">Paste a file or folder path from this machine.</p>
+          <form method="post" action="/ingest/path">
+            <label>Model</label><br/>
+            <input name="model" placeholder="mybooks" />
+            <div style="height:10px"></div>
+            <label>Path</label><br/>
+            <input name="path" placeholder="/home/winzer/Documents/books" />
+            <div style="height:10px"></div>
+            <button type="submit">Ingest path</button>
+          </form>
+        </div>
+        <div class="col">
+          <h4>Upload a file</h4>
+          <p class="muted">Upload .pdf/.txt/.md and we’ll ingest it into the chosen model.</p>
+          <form method="post" action="/ingest/upload" enctype="multipart/form-data">
+            <label>Model</label><br/>
+            <input name="model" placeholder="mybooks" />
+            <div style="height:10px"></div>
+            <input type="file" name="file" />
+            <div style="height:10px"></div>
+            <button type="submit">Upload & ingest</button>
+          </form>
+        </div>
+      </div>
+      <p class="muted">After ingesting: run <code>ocnlp build &lt;model&gt;</code> (CLI for now) to compute embeddings + index.</p>
+    </div>
+<div class="card">
       <h3>Models</h3>
       {{if .Models}}
       <table>

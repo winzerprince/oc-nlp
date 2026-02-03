@@ -124,7 +124,7 @@ func (s *Store) manifestPath(model string) string {
 	return filepath.Join(s.modelDir(model), "sources.json")
 }
 
-func (s *Store) IngestTextSources(model, path string) error {
+func (s *Store) IngestSources(model, path string) error {
 	paths, err := ingest.WalkPaths(path)
 	if err != nil {
 		return err
@@ -168,18 +168,18 @@ func simpleChunk(text string, chunkSize, overlap int) []string {
 	if chunkSize <= 0 {
 		return []string{}
 	}
-	
+
 	words := strings.Fields(text)
 	if len(words) == 0 {
 		return []string{}
 	}
-	
+
 	chunks := make([]string, 0)
 	step := chunkSize - overlap
 	if step <= 0 {
 		step = chunkSize
 	}
-	
+
 	for i := 0; i < len(words); i += step {
 		end := i + chunkSize
 		if end > len(words) {
@@ -191,7 +191,7 @@ func simpleChunk(text string, chunkSize, overlap int) []string {
 			break
 		}
 	}
-	
+
 	return chunks
 }
 
@@ -202,20 +202,20 @@ func (s *Store) BuildIndex(ctx context.Context, model string, cfg embeddings.Con
 	if err != nil {
 		return fmt.Errorf("load sources: %w", err)
 	}
-	
+
 	if len(manifest.Sources) == 0 {
 		return errors.New("no sources to index")
 	}
-	
+
 	// Create embeddings client
 	embClient, err := embeddings.NewClient(cfg)
 	if err != nil {
 		return fmt.Errorf("create embeddings client: %w", err)
 	}
-	
+
 	// Create new index
 	idx := vector.NewIndex()
-	
+
 	// Process each source
 	docID := 0
 	for _, src := range manifest.Sources {
@@ -224,21 +224,21 @@ func (s *Store) BuildIndex(ctx context.Context, model string, cfg embeddings.Con
 		if err != nil {
 			continue
 		}
-		
+
 		// Simple chunking (100 words with 20 word overlap)
 		chunks := simpleChunk(string(text), 100, 20)
-		
+
 		// Generate embeddings for each chunk
 		for chunkIdx, chunk := range chunks {
 			if strings.TrimSpace(chunk) == "" {
 				continue
 			}
-			
+
 			embedding, err := embClient.Embed(ctx, chunk)
 			if err != nil {
 				return fmt.Errorf("embed chunk %d: %w", chunkIdx, err)
 			}
-			
+
 			docID++
 			doc := vector.Document{
 				ID:        fmt.Sprintf("doc_%d", docID),
@@ -253,12 +253,12 @@ func (s *Store) BuildIndex(ctx context.Context, model string, cfg embeddings.Con
 			idx.Add(doc)
 		}
 	}
-	
+
 	// Save index
 	if err := idx.Save(s.indexPath(model)); err != nil {
 		return fmt.Errorf("save index: %w", err)
 	}
-	
+
 	// Update model stats
 	meta, err := s.GetModel(model)
 	if err != nil {
@@ -273,7 +273,7 @@ func (s *Store) BuildIndex(ctx context.Context, model string, cfg embeddings.Con
 	if err := os.WriteFile(s.metaPath(model), mb, 0o644); err != nil {
 		return fmt.Errorf("write model metadata: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -284,25 +284,25 @@ func (s *Store) SearchIndex(ctx context.Context, model string, query string, top
 	if err != nil {
 		return nil, fmt.Errorf("load index: %w", err)
 	}
-	
+
 	// Create embeddings client
 	embClient, err := embeddings.NewClient(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("create embeddings client: %w", err)
 	}
-	
+
 	// Generate query embedding
 	queryEmb, err := embClient.Embed(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("embed query: %w", err)
 	}
-	
+
 	// Search
 	results, err := idx.Search(queryEmb, topK)
 	if err != nil {
 		return nil, fmt.Errorf("search: %w", err)
 	}
-	
+
 	return results, nil
 }
 
@@ -316,4 +316,9 @@ func (s *Store) loadSourcesManifest(model string) (*SourcesManifest, error) {
 		return nil, err
 	}
 	return &m, nil
+}
+
+// IngestTextSources is kept for compatibility; use IngestSources.
+func (s *Store) IngestTextSources(model, path string) error {
+	return s.IngestSources(model, path)
 }

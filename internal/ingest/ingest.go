@@ -10,6 +10,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/ledongthuc/pdf"
 )
 
 var ErrUnsupported = errors.New("unsupported file type")
@@ -63,9 +65,58 @@ func ExtractText(path string) (kind string, text string, sum string, err error) 
 		norm := NormalizeText(string(b))
 		h := sha256.Sum256([]byte(norm))
 		return kind, norm, hex.EncodeToString(h[:]), nil
+	case ".pdf":
+		kind = "pdf"
+		content, rerr := extractPDFText(path)
+		if rerr != nil {
+			return "", "", "", rerr
+		}
+		norm := NormalizeText(content)
+		h := sha256.Sum256([]byte(norm))
+		return kind, norm, hex.EncodeToString(h[:]), nil
 	default:
 		return "", "", "", ErrUnsupported
 	}
+}
+
+func extractPDFText(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	info, err := f.Stat()
+	if err != nil {
+		return "", err
+	}
+
+	r, err := pdf.NewReader(f, info.Size())
+	if err != nil {
+		// Check if it's an encrypted PDF
+		if strings.Contains(err.Error(), "encrypted") || strings.Contains(err.Error(), "password") {
+			return "", errors.New("encrypted PDF not supported")
+		}
+		return "", err
+	}
+
+	var sb strings.Builder
+	numPages := r.NumPage()
+	for i := 1; i <= numPages; i++ {
+		p := r.Page(i)
+		if p.V.IsNull() {
+			continue
+		}
+		text, err := p.GetPlainText(nil)
+		if err != nil {
+			// Skip pages with errors and continue
+			continue
+		}
+		sb.WriteString(text)
+		sb.WriteString("\n")
+	}
+
+	return sb.String(), nil
 }
 
 func CopyTo(dest string, r io.Reader) error {

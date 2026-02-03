@@ -3,6 +3,7 @@ package ingest
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -38,5 +39,38 @@ func TestExtractTextUnsupported(t *testing.T) {
 	_, _, _, err := ExtractText(p)
 	if err == nil {
 		t.Fatal("expected error")
+	}
+}
+
+func TestExtractTextPDF(t *testing.T) {
+	// Test with the fixture PDF
+	p := filepath.Join("testdata", "sample.pdf")
+	kind, text, sum, err := ExtractText(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if kind != "pdf" {
+		t.Fatalf("expected kind=pdf, got %q", kind)
+	}
+	if text == "" {
+		t.Fatal("expected non-empty text")
+	}
+	if !strings.Contains(text, "Hello PDF World") {
+		t.Fatalf("expected text to contain 'Hello PDF World', got %q", text)
+	}
+	if sum == "" {
+		t.Fatal("expected non-empty checksum")
+	}
+}
+
+func TestExtractTextPDFEncrypted(t *testing.T) {
+	// Test with encrypted PDF - should fail gracefully
+	p := filepath.Join("testdata", "encrypted.pdf")
+	_, _, _, err := ExtractText(p)
+	if err == nil {
+		t.Fatal("expected error for encrypted PDF")
+	}
+	if !strings.Contains(err.Error(), "encrypted") {
+		t.Fatalf("expected error message to contain 'encrypted', got %q", err.Error())
 	}
 }

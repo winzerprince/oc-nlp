@@ -1,0 +1,53 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{.Title}}</title>
+    <style>
+      body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 40px; max-width: 980px; }
+      code, pre { background: #f4f4f5; padding: 10px; border-radius: 10px; overflow-x:auto; }
+      .card { border: 1px solid #e4e4e7; border-radius: 10px; padding: 16px; margin: 12px 0; }
+      input { padding: 10px; border: 1px solid #d4d4d8; border-radius: 10px; width: 100%; }
+      button { padding: 10px 14px; border: 1px solid #18181b; background: #18181b; color: white; border-radius: 10px; cursor: pointer; }
+      .muted { color:#71717a; }
+    </style>
+  </head>
+  <body>
+    <p><a href="/">← models</a></p>
+    <h1>Chat: <code>{{.Model}}</code></h1>
+
+    <div class="card">
+      <form method="post" action="/chat?model={{.Model}}">
+        <label>Your question</label>
+        <input name="q" value="{{.Query}}" placeholder="Ask something about your docs..." />
+        <div style="height:10px"></div>
+        <button type="submit">Ask</button>
+      </form>
+      <p class="muted">Requires: you already ran <code>ocnlp build {{.Model}}</code> and Ollama is running.</p>
+      {{if .Error}}
+        <p style="color:#b91c1c">Error: {{.Error}}</p>
+      {{end}}
+    </div>
+
+    {{if .Result}}
+    <div class="card">
+      <h3>Answer</h3>
+      <pre>{{.Result.Answer}}</pre>
+    </div>
+
+    <div class="card">
+      <h3>Retrieved passages (educational)</h3>
+      {{range .Result.Retrieved}}
+        <p class="muted">score={{printf "%.4f" .Score}}</p>
+        <pre>{{.Text}}</pre>
+      {{end}}
+    </div>
+
+    <div class="card">
+      <h3>Assembled prompt (educational)</h3>
+      <pre>{{.Result.AssembledPrompt}}</pre>
+    </div>
+    {{end}}
+  </body>
+</html>

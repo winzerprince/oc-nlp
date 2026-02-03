@@ -49,14 +49,14 @@
       {{if .Models}}
       <table>
         <thead>
-          <tr><th>Name</th><th>Chunks</th><th>Updated (UTC)</th></tr>
+          <tr><th>Name</th><th>Chunks</th><th>Updated (UTC)</th><th></th></tr>
         </thead>
         <tbody>
           {{range .Models}}
             <tr>
               <td><code>{{.Name}}</code></td>
               <td>{{.Stats.Chunks}}</td>
-              <td>{{.UpdatedAt}}</td>
+              <td>{{.UpdatedAt}}</td><td><a href="/chat?model={{.Name}}">chat</a></td>
             </tr>
           {{end}}
         </tbody>

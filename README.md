@@ -46,23 +46,48 @@ ocnlp models
 ocnlp model create mybooks
 
 # ingest a folder
-ocnlp ingest mybooks --path ~/Books
+ocnlp ingest --path ~/Books mybooks
 
 # build index (embeddings)
+# This generates embeddings using Ollama and builds the vector index
 ocnlp build mybooks
 
-# chat
+# search the index
+ocnlp search --query "what is machine learning?" --k 5 mybooks
+
+# configure Ollama (optional)
+ocnlp build mybooks --host http://localhost:11434 --model nomic-embed-text
+
+# chat (coming soon)
 ocnlp chat mybooks
 ```
 
 ## Architecture (high-level)
 
 1. **Ingest**: PDF/text → normalized text
-2. **Chunk**: split into overlapping chunks
-3. **Embed**: embed each chunk into a vector
-4. **Index**: store vectors + metadata, cosine search
-5. **Chat**: retrieve top-K chunks → assemble prompt → generate answer
+2. **Chunk**: split into overlapping chunks (100 words with 20 word overlap)
+3. **Embed**: embed each chunk into a vector using Ollama
+4. **Index**: store vectors + metadata on disk with cosine similarity search
+5. **Chat**: retrieve top-K chunks → assemble prompt → generate answer (coming soon)
+
+### Vector Index
+
+The local vector index provides:
+- **Ollama embeddings**: Uses Ollama's embedding API (default: `nomic-embed-text` model)
+- **Disk persistence**: Vectors stored as JSON in `.ocnlp/models/<name>/index.json`
+- **Cosine similarity search**: Fast in-memory similarity computation
+- **Top-K retrieval**: Returns top results with similarity scores
 
 ## Project status
 
 Scaffolded; core index + educational UI in progress.
+
+**Completed:**
+- ✅ Ollama embeddings integration
+- ✅ Local vector index with cosine similarity
+- ✅ CLI commands for build and search
+- ✅ Disk persistence for vectors
+
+**In Progress:**
+- 🚧 Educational UI
+- 🚧 Chat/RAG functionality

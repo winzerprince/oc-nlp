@@ -5,21 +5,68 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{{.Title}}</title>
     <style>
-      body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 40px; max-width: 900px; }
+      body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 40px; max-width: 980px; }
       code { background: #f4f4f5; padding: 2px 6px; border-radius: 6px; }
       .card { border: 1px solid #e4e4e7; border-radius: 10px; padding: 16px; margin: 12px 0; }
+      .row { display:flex; gap: 16px; align-items: flex-start; }
+      .col { flex:1; }
+      input { padding: 8px; border: 1px solid #d4d4d8; border-radius: 8px; width: 100%; }
+      button { padding: 8px 12px; border: 1px solid #18181b; background: #18181b; color: white; border-radius: 8px; cursor: pointer; }
+      table { width:100%; border-collapse: collapse; }
+      th, td { text-align:left; padding: 8px; border-bottom: 1px solid #eee; }
+      .muted { color:#71717a; }
     </style>
   </head>
   <body>
     <h1>oc-nlp</h1>
+
     <div class="card">
-      <p>
-        This is the initial scaffold. Next up: model creation, ingestion (PDF/text/folders),
-        indexing (embeddings), and an educational chat UI that shows retrieval internals.
-      </p>
-      <p>
-        Run: <code>go run ./cmd/ocnlp server</code>
-      </p>
+      <div class="row">
+        <div class="col">
+          <h3>1) Create a model</h3>
+          <p class="muted">A “model” = a versioned document index stored under <code>.ocnlp/models/&lt;name&gt;</code>.</p>
+          <form method="post" action="/models/create">
+            <label>Model name</label><br/>
+            <input name="name" placeholder="mybooks" />
+            <div style="height:10px"></div>
+            <button type="submit">Create</button>
+          </form>
+        </div>
+        <div class="col">
+          <h3>2) Next steps (coming)</h3>
+          <ul>
+            <li>Ingest: PDF/text/folders</li>
+            <li>Chunking + embeddings (Ollama)</li>
+            <li>Vector search + chat</li>
+            <li>Educational panels: chunks, similarity, prompt assembly</li>
+          </ul>
+        </div>
+      </div>
     </div>
+
+    <div class="card">
+      <h3>Models</h3>
+      {{if .Models}}
+      <table>
+        <thead>
+          <tr><th>Name</th><th>Chunks</th><th>Updated (UTC)</th></tr>
+        </thead>
+        <tbody>
+          {{range .Models}}
+            <tr>
+              <td><code>{{.Name}}</code></td>
+              <td>{{.Stats.Chunks}}</td>
+              <td>{{.UpdatedAt}}</td>
+            </tr>
+          {{end}}
+        </tbody>
+      </table>
+      {{else}}
+        <p class="muted">No models yet.</p>
+      {{end}}
+
+      <p class="muted">CLI: <code>ocnlp model create mybooks</code> · <code>ocnlp models</code></p>
+    </div>
+
   </body>
 </html>

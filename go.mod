@@ -1,8 +1,11 @@
 module github.com/winzerprince/oc-nlp
 
-go 1.25.5
+go 1.24.1
 
-require github.com/ollama/ollama v0.15.4
+require (
+	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728
+	github.com/ollama/ollama v0.15.4
+)
 
 require (
 	github.com/bahlo/generic-list-go v0.2.0 // indirect

@@ -1,14 +1,17 @@
 package app
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"time"
 
+	"github.com/winzerprince/oc-nlp/internal/embedding"
 	"github.com/winzerprince/oc-nlp/internal/ingest"
 )
 
@@ -118,6 +121,10 @@ func (s *Store) manifestPath(model string) string {
 	return filepath.Join(s.modelDir(model), "sources.json")
 }
 
+func (s *Store) indexPath(model string) string {
+	return filepath.Join(s.modelDir(model), "index.json")
+}
+
 func (s *Store) IngestTextSources(model, path string) error {
 	paths, err := ingest.WalkPaths(path)
 	if err != nil {
@@ -151,4 +158,87 @@ func (s *Store) IngestTextSources(model, path string) error {
 		_ = os.WriteFile(s.metaPath(model), mb, 0o644)
 	}
 	return nil
+}
+
+// BuildIndex chunks and embeds all sources for a model
+func (s *Store) BuildIndex(ctx context.Context, model string) error {
+	// Read sources manifest
+	manifest, err := s.getSourcesManifest(model)
+	if err != nil {
+		return fmt.Errorf("failed to read sources: %w", err)
+	}
+
+	if len(manifest.Sources) == 0 {
+		return errors.New("no sources to index")
+	}
+
+	// Create Ollama client
+	client, err := embedding.NewOllamaClient("", "")
+	if err != nil {
+		return fmt.Errorf("failed to create Ollama client: %w", err)
+	}
+
+	// Create index
+	idx := embedding.NewIndex()
+
+	// Process each source
+	for _, src := range manifest.Sources {
+		text, err := os.ReadFile(src.TextPath)
+		if err != nil {
+			continue
+		}
+
+		// Chunk the text
+		chunks := embedding.ChunkText(string(text), 500, 100)
+
+		// Embed each chunk
+		for i, chunkText := range chunks {
+			vec, err := client.Embed(ctx, chunkText)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "warning: failed to embed chunk %d from %s: %v\n", i, src.Path, err)
+				continue
+			}
+
+			chunk := embedding.Chunk{
+				Text:     chunkText,
+				SourceID: src.SHA256,
+				Index:    i,
+				Vector:   vec,
+			}
+			idx.Add(chunk)
+		}
+	}
+
+	// Save index
+	if err := idx.Save(s.indexPath(model)); err != nil {
+		return fmt.Errorf("failed to save index: %w", err)
+	}
+
+	// Update model stats
+	meta, err := s.GetModel(model)
+	if err == nil {
+		meta.Stats.Chunks = len(idx.Chunks)
+		meta.UpdatedAt = time.Now().UTC()
+		mb, _ := json.MarshalIndent(meta, "", "  ")
+		_ = os.WriteFile(s.metaPath(model), mb, 0o644)
+	}
+
+	return nil
+}
+
+// LoadIndex loads the index for a model
+func (s *Store) LoadIndex(model string) (*embedding.Index, error) {
+	return embedding.LoadIndex(s.indexPath(model))
+}
+
+func (s *Store) getSourcesManifest(model string) (*SourcesManifest, error) {
+	b, err := os.ReadFile(s.manifestPath(model))
+	if err != nil {
+		return nil, err
+	}
+	var manifest SourcesManifest
+	if err := json.Unmarshal(b, &manifest); err != nil {
+		return nil, err
+	}
+	return &manifest, nil
 }

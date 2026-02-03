@@ -1,0 +1,140 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{.Title}}</title>
+    <style>
+      body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 40px; max-width: 1400px; }
+      code { background: #f4f4f5; padding: 2px 6px; border-radius: 6px; font-size: 0.9em; }
+      pre { background: #f4f4f5; padding: 12px; border-radius: 8px; overflow-x: auto; font-size: 0.85em; }
+      .card { border: 1px solid #e4e4e7; border-radius: 10px; padding: 16px; margin: 12px 0; }
+      .row { display:flex; gap: 16px; }
+      .col { flex:1; }
+      input, textarea { padding: 8px; border: 1px solid #d4d4d8; border-radius: 8px; width: 100%; font-family: inherit; }
+      button { padding: 8px 12px; border: 1px solid #18181b; background: #18181b; color: white; border-radius: 8px; cursor: pointer; }
+      button:hover { background: #27272a; }
+      button:disabled { background: #a1a1aa; border-color: #a1a1aa; cursor: not-allowed; }
+      .muted { color:#71717a; font-size: 0.9em; }
+      .score { background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 4px; font-size: 0.85em; font-weight: 600; }
+      .chunk { background: #fefce8; border-left: 3px solid #eab308; padding: 12px; margin: 8px 0; border-radius: 6px; }
+      .answer { background: #dcfce7; border-left: 3px solid #16a34a; padding: 16px; margin: 12px 0; border-radius: 8px; font-size: 1.05em; line-height: 1.6; }
+      .panel { max-height: 400px; overflow-y: auto; }
+      .loading { color: #71717a; font-style: italic; }
+    </style>
+  </head>
+  <body>
+    <div style="display:flex; justify-content: space-between; align-items: center;">
+      <h1>Chat with <code>{{.Model.Name}}</code></h1>
+      <a href="/" style="text-decoration:none; color:#18181b;">← Back to home</a>
+    </div>
+
+    <p class="muted">Chunks: {{.Model.Stats.Chunks}} · Updated: {{.Model.UpdatedAt}}</p>
+
+    <div class="card">
+      <h3>Ask a question</h3>
+      <textarea id="query" rows="3" placeholder="What is this document about?"></textarea>
+      <div style="height:12px"></div>
+      <div style="display:flex; gap: 12px; align-items: center;">
+        <button id="ask" onclick="askQuestion()">Ask</button>
+        <label>Top-K: <input type="number" id="topK" value="3" style="width:60px;" min="1" max="10"></label>
+        <label>Model: <input type="text" id="llm" value="llama3.2:1b" style="width:150px;"></label>
+        <span id="status" class="loading" style="display:none;">Loading...</span>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col">
+        <div class="card">
+          <h3>Retrieved Passages</h3>
+          <p class="muted">Top chunks by similarity</p>
+          <div id="chunks" class="panel"></div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card">
+          <h3>Assembled Prompt</h3>
+          <p class="muted">What gets sent to the LLM</p>
+          <pre id="prompt" class="panel"></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Answer</h3>
+      <div id="answer"></div>
+    </div>
+
+    <script>
+      async function askQuestion() {
+        const query = document.getElementById('query').value.trim();
+        if (!query) return;
+
+        const topK = parseInt(document.getElementById('topK').value) || 3;
+        const llm = document.getElementById('llm').value.trim() || 'llama3.2:1b';
+
+        document.getElementById('ask').disabled = true;
+        document.getElementById('status').style.display = 'inline';
+        document.getElementById('chunks').innerHTML = '';
+        document.getElementById('prompt').textContent = '';
+        document.getElementById('answer').innerHTML = '';
+
+        try {
+          const res = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: '{{.Model.Name}}', query, topK, llm })
+          });
+
+          if (!res.ok) {
+            const text = await res.text();
+            throw new Error(text);
+          }
+
+          const data = await res.json();
+
+          // Display retrieved chunks
+          if (data.retrievedChunks && data.retrievedChunks.length > 0) {
+            const chunksHtml = data.retrievedChunks.map((item, i) => {
+              return `
+                <div class="chunk">
+                  <div><span class="score">Score: ${item.score.toFixed(4)}</span></div>
+                  <p style="margin-top:8px; margin-bottom:0;">${escapeHtml(item.chunk.text)}</p>
+                </div>
+              `;
+            }).join('');
+            document.getElementById('chunks').innerHTML = chunksHtml;
+          } else {
+            document.getElementById('chunks').innerHTML = '<p class="muted">No chunks retrieved</p>';
+          }
+
+          // Display assembled prompt
+          document.getElementById('prompt').textContent = data.assembledPrompt || '(empty)';
+
+          // Display answer
+          document.getElementById('answer').innerHTML = `<div class="answer">${escapeHtml(data.answer)}</div>`;
+
+        } catch (err) {
+          document.getElementById('answer').innerHTML = `<p style="color:red;">Error: ${escapeHtml(err.message)}</p>`;
+        } finally {
+          document.getElementById('ask').disabled = false;
+          document.getElementById('status').style.display = 'none';
+        }
+      }
+
+      function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      // Allow Enter to submit (Shift+Enter for newline)
+      document.getElementById('query').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          askQuestion();
+        }
+      });
+    </script>
+  </body>
+</html>

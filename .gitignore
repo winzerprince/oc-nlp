@@ -1,0 +1,16 @@
+# build
+/bin/
+/dist/
+*.exe
+
+# data
+.ocnlp/
+
+# go
+*.test
+*.out
+
+# editor
+.vscode/
+.idea/
+.DS_Store

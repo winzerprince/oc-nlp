@@ -2,6 +2,7 @@
 /bin/
 /dist/
 *.exe
+/ocnlp
 
 # data
 .ocnlp/

@@ -75,10 +75,12 @@ func main() {
 				args = append(args, a)
 			}
 		}
-		if len(args) < 2 {
+		if len(args) < 1 {
 			log.Fatal("usage: ocnlp ingest <model> --path <file|dir> [--data .ocnlp]")
 		}
-		model := args[1]
+		model := args[0]
+		// ignore any extra positional args (often introduced by shell completion)
+
 		if path == "" {
 			log.Fatal("missing --path")
 		}

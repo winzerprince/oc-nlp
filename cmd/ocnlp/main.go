@@ -118,7 +118,7 @@ func main() {
 		}
 
 		// Create Ollama client
-		client, err := embedding.NewOllamaClient("", "")
+		client, err := embedding.NewOllamaClient(embedding.DefaultOllamaURL, embedding.DefaultEmbeddingModel)
 		if err != nil {
 			log.Fatal(err)
 		}

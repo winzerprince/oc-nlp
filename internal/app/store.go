@@ -173,7 +173,7 @@ func (s *Store) BuildIndex(ctx context.Context, model string) error {
 	}
 
 	// Create Ollama client
-	client, err := embedding.NewOllamaClient("", "")
+	client, err := embedding.NewOllamaClient(embedding.DefaultOllamaURL, embedding.DefaultEmbeddingModel)
 	if err != nil {
 		return fmt.Errorf("failed to create Ollama client: %w", err)
 	}

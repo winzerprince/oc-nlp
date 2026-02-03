@@ -117,7 +117,7 @@ func (a *App) handleChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create client and RAG
-	client, err := embedding.NewOllamaClient("", "")
+	client, err := embedding.NewOllamaClient(embedding.DefaultOllamaURL, embedding.DefaultEmbeddingModel)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

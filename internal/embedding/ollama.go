@@ -8,7 +8,10 @@ import (
 	"github.com/ollama/ollama/api"
 )
 
-const DefaultEmbeddingModel = "nomic-embed-text"
+const (
+	DefaultOllamaURL      = "http://localhost:11434"
+	DefaultEmbeddingModel = "nomic-embed-text"
+)
 
 // OllamaClient wraps the Ollama API client for embeddings
 type OllamaClient struct {
@@ -19,7 +22,7 @@ type OllamaClient struct {
 // NewOllamaClient creates a new Ollama client
 func NewOllamaClient(baseURL, model string) (*OllamaClient, error) {
 	if baseURL == "" {
-		baseURL = "http://localhost:11434"
+		baseURL = DefaultOllamaURL
 	}
 	if model == "" {
 		model = DefaultEmbeddingModel

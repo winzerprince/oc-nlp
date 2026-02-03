@@ -51,23 +51,42 @@ func main() {
 		}
 
 	case "ingest":
-		fs := flag.NewFlagSet("ingest", flag.ExitOnError)
-		data := fs.String("data", ".ocnlp", "data directory")
-		path := fs.String("path", "", "file or directory to ingest")
-		_ = fs.Parse(os.Args[2:])
-		args := fs.Args()
-		if len(args) < 1 {
-			log.Fatal("missing model name")
+		// We allow flags to appear after positional args (e.g. `ocnlp ingest mybooks --path ./docs`).
+		// The stdlib flag package does not support interspersed flags, so we manually extract known flags.
+		data := ".ocnlp"
+		path := ""
+		args := make([]string, 0, len(os.Args[2:]))
+		for i := 2; i < len(os.Args); i++ {
+			a := os.Args[i]
+			switch a {
+			case "--data":
+				if i+1 >= len(os.Args) {
+					log.Fatal("--data requires a value")
+				}
+				data = os.Args[i+1]
+				i++
+			case "--path":
+				if i+1 >= len(os.Args) {
+					log.Fatal("--path requires a value")
+				}
+				path = os.Args[i+1]
+				i++
+			default:
+				args = append(args, a)
+			}
 		}
-		if *path == "" {
+		if len(args) < 2 {
+			log.Fatal("usage: ocnlp ingest <model> --path <file|dir> [--data .ocnlp]")
+		}
+		model := args[1]
+		if path == "" {
 			log.Fatal("missing --path")
 		}
-		model := args[0]
-		store := app.NewStore(*data)
+		store := app.NewStore(data)
 		if _, err := store.GetModel(model); err != nil {
 			log.Fatal(err)
 		}
-		if err := store.IngestTextSources(model, *path); err != nil {
+		if err := store.IngestSources(model, path); err != nil {
 			log.Fatal(err)
 		}
 		fmt.Println("ingested into model:", model)
@@ -110,17 +129,17 @@ func main() {
 			log.Fatal("missing model name")
 		}
 		modelName := args[0]
-		
+
 		store := app.NewStore(*data)
 		if _, err := store.GetModel(modelName); err != nil {
 			log.Fatal(err)
 		}
-		
+
 		cfg := embeddings.Config{
 			Host:  *host,
 			Model: *model,
 		}
-		
+
 		fmt.Printf("Building index for model '%s' using %s on %s...\n", modelName, cfg.Model, cfg.Host)
 		ctx := context.Background()
 		if err := store.BuildIndex(ctx, modelName, cfg); err != nil {
@@ -141,32 +160,32 @@ func main() {
 			log.Fatal("missing model name")
 		}
 		modelName := args[0]
-		
+
 		if *query == "" {
 			log.Fatal("missing --query")
 		}
-		
+
 		store := app.NewStore(*data)
 		if _, err := store.GetModel(modelName); err != nil {
 			log.Fatal(err)
 		}
-		
+
 		cfg := embeddings.Config{
 			Host:  *host,
 			Model: *model,
 		}
-		
+
 		ctx := context.Background()
 		results, err := store.SearchIndex(ctx, modelName, *query, *topK, cfg)
 		if err != nil {
 			log.Fatal(err)
 		}
-		
+
 		if len(results) == 0 {
 			fmt.Println("No results found")
 			return
 		}
-		
+
 		fmt.Printf("Found %d results:\n\n", len(results))
 		for i, r := range results {
 			fmt.Printf("=== Result %d (score: %.4f) ===\n", i+1, r.Score)

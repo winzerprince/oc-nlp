@@ -14,7 +14,7 @@ func main() {
 	log.SetFlags(0)
 
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: ocnlp <server|models|model>")
+		fmt.Fprintln(os.Stderr, "usage: ocnlp <server|models|model|ingest>")
 		os.Exit(2)
 	}
 
@@ -47,6 +47,28 @@ func main() {
 		for _, m := range models {
 			fmt.Printf("%s\tchunks=%d\tupdated=%s\n", m.Name, m.Stats.Chunks, m.UpdatedAt)
 		}
+
+	case "ingest":
+		fs := flag.NewFlagSet("ingest", flag.ExitOnError)
+		data := fs.String("data", ".ocnlp", "data directory")
+		path := fs.String("path", "", "file or directory to ingest")
+		_ = fs.Parse(os.Args[2:])
+		args := fs.Args()
+		if len(args) < 1 {
+			log.Fatal("missing model name")
+		}
+		if *path == "" {
+			log.Fatal("missing --path")
+		}
+		model := args[0]
+		store := app.NewStore(*data)
+		if _, err := store.GetModel(model); err != nil {
+			log.Fatal(err)
+		}
+		if err := store.IngestTextSources(model, *path); err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println("ingested into model:", model)
 
 	case "model":
 		if len(os.Args) < 3 {

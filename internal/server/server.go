@@ -6,6 +6,10 @@ import (
 	"html/template"
 	"net/http"
 
+	"github.com/winzerprince/oc-nlp/internal/chat"
+	"github.com/winzerprince/oc-nlp/internal/embeddings"
+	"github.com/winzerprince/oc-nlp/internal/llm"
+
 	"github.com/winzerprince/oc-nlp/internal/app"
 )
 
@@ -29,6 +33,7 @@ func Run(addr, dataDir string) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", app.handleHome)
 	mux.HandleFunc("/models/create", app.handleCreateModel)
+	mux.HandleFunc("/chat", app.handleChat)
 
 	srv := &http.Server{Addr: addr, Handler: mux}
 	fmt.Println("oc-nlp server:", "http://"+addr)
@@ -56,4 +61,38 @@ func (a *App) handleCreateModel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+func (a *App) handleChat(w http.ResponseWriter, r *http.Request) {
+	model := r.URL.Query().Get("model")
+	if model == "" {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+	query := ""
+	if r.Method == http.MethodPost {
+		query = r.FormValue("q")
+	}
+	var res any
+	var errMsg string
+	if query != "" {
+		ctx := r.Context()
+		embCfg := embeddings.DefaultConfig()
+		llmCfg := llm.DefaultConfig()
+		r, err := chat.Ask(ctx, a.Store, model, query, 4, embCfg, llmCfg)
+		if err != nil {
+			errMsg = err.Error()
+		} else {
+			res = r
+		}
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_ = a.T.ExecuteTemplate(w, "chat.html", map[string]any{
+		"Title":  "oc-nlp chat",
+		"Model":  model,
+		"Query":  query,
+		"Result": res,
+		"Error":  errMsg,
+	})
 }
